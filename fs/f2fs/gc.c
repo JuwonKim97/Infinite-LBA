@@ -1532,7 +1532,8 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 	unsigned char type = IS_DATASEG(get_seg_entry(sbi, segno)->type) ?
 						SUM_TYPE_DATA : SUM_TYPE_NODE;
 	int submitted = 0;
-
+	if (gc_type == FG_GC)
+		printk("[JW DBG] %s: FG GC!!!\n", __func__);
 	if (__is_large_section(sbi))
 		end_segno = rounddown(end_segno, sbi->segs_per_sec);
 
@@ -1685,8 +1686,10 @@ gc_more:
 			if (ret)
 				goto stop;
 		}
-		if (has_not_enough_free_secs(sbi, 0, 0))
+		if (has_not_enough_free_secs(sbi, 0, 0)){
+			printk("[JW DBG] %s: has not enough free secs; gc_type changed to FG_GC\n", __func__);
 			gc_type = FG_GC;
+		}
 	}
 
 	/* f2fs_balance_fs doesn't need to do BG_GC in critical path. */
