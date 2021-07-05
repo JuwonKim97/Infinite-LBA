@@ -1531,12 +1531,13 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 	int seg_freed = 0, migrated = 0;
 	unsigned char type = IS_DATASEG(get_seg_entry(sbi, segno)->type) ?
 						SUM_TYPE_DATA : SUM_TYPE_NODE;
+	static int gc_cnt = 0;
 	int submitted = 0;
-	if (gc_type == FG_GC)
+	if (gc_type == FG_GC && (gc_cnt % 1000 == 0))
 		printk("[JW DBG] %s: FG GC!!!\n", __func__);
 	if (__is_large_section(sbi))
 		end_segno = rounddown(end_segno, sbi->segs_per_sec);
-
+	gc_cnt += 1;
 	/*
 	 * zone-capacity can be less than zone-size in zoned devices,
 	 * resulting in less than expected usable segments in the zone,
@@ -1687,7 +1688,7 @@ gc_more:
 				goto stop;
 		}
 		if (has_not_enough_free_secs(sbi, 0, 0)){
-			printk("[JW DBG] %s: has not enough free secs; gc_type changed to FG_GC\n", __func__);
+			//printk("[JW DBG] %s: has not enough free secs; gc_type changed to FG_GC\n", __func__);
 			gc_type = FG_GC;
 		}
 	}
