@@ -1113,6 +1113,7 @@ static void __set_data_blkaddr(struct dnode_of_data *dn)
 	/* Get physical address of data block */
 	addr_array = blkaddr_in_node(rn);
 	addr_array[base + dn->ofs_in_node] = cpu_to_le32(dn->data_blkaddr);
+	//define cpu_to_le64(x)	bswap_64(x)
 }
 
 /*
