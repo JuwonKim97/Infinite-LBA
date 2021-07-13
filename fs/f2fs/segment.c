@@ -1168,6 +1168,7 @@ static int __submit_discard_cmd(struct f2fs_sb_info *sbi,
 	block_t lstart, start, len, total_len;
 	int err = 0;
 
+	printk("[JW DBG] %s: start\n", __func__);
 	if (dc->state != D_PREP)
 		return 0;
 
@@ -1511,6 +1512,7 @@ static int __issue_discard_cmd(struct f2fs_sb_info *sbi,
 	struct blk_plug plug;
 	int i, issued;
 	bool io_interrupted = false;
+	printk("[JW DBG] %s: start\n", __func__);
 
 	if (dpolicy->timeout)
 		f2fs_update_time(sbi, UMOUNT_DISCARD_TIMEOUT);
@@ -1547,6 +1549,7 @@ retry:
 			if (dpolicy->io_aware && i < dpolicy->io_aware_gran &&
 						!is_idle(sbi, DISCARD_TIME)) {
 				io_interrupted = true;
+				printk("[JW DBG] %s: discard submit blocked!!\n", __func__);
 				break;
 			}
 
@@ -1743,6 +1746,7 @@ static int issue_discard_thread(void *data)
 	struct discard_policy dpolicy;
 	unsigned int wait_ms = DEF_MIN_DISCARD_ISSUE_TIME;
 	int issued;
+	int wait_event_rtr;
 
 	set_freezable();
 
@@ -1750,25 +1754,31 @@ static int issue_discard_thread(void *data)
 		__init_discard_policy(sbi, &dpolicy, DPOLICY_BG,
 					dcc->discard_granularity);
 
-		wait_event_interruptible_timeout(*q,
+		wait_event_rtr = wait_event_interruptible_timeout(*q,
 				kthread_should_stop() || freezing(current) ||
 				dcc->discard_wake,
 				msecs_to_jiffies(wait_ms));
-
-		if (dcc->discard_wake)
+		printk("[JW DBG] %s wait_event_rtr: %d\n", __func__, wait_event_rtr);
+		if (dcc->discard_wake){
+			printk("[JW DBG] %s discard_wake = 1\n", __func__);
 			dcc->discard_wake = 0;
-
+		}
 		/* clean up pending candidates before going to sleep */
 		if (atomic_read(&dcc->queued_discard))
 			__wait_all_discard_cmd(sbi, NULL);
 
-		if (try_to_freeze())
+		if (try_to_freeze()){
+			printk("[JW DBG] %s discard skipped by try_to_freeze true\n", __func__);
 			continue;
-		if (f2fs_readonly(sbi->sb))
+		}
+		if (f2fs_readonly(sbi->sb)){
+			printk("[JW DBG] %s discard skipped by f2fs_readonly true\n", __func__);
 			continue;
+		}
 		if (kthread_should_stop())
 			return 0;
 		if (is_sbi_flag_set(sbi, SBI_NEED_FSCK)) {
+			printk("[JW DBG] %s discard skipped by SBI_NEED_FSCK true\n", __func__);
 			wait_ms = dpolicy.max_interval;
 			continue;
 		}
@@ -1778,6 +1788,7 @@ static int issue_discard_thread(void *data)
 
 		sb_start_intwrite(sbi->sb);
 
+		printk("[JW DBG] %s: thread waked up!!\n", __func__);
 		issued = __issue_discard_cmd(sbi, &dpolicy);
 		if (issued > 0) {
 			__wait_all_discard_cmd(sbi, &dpolicy);
@@ -1839,10 +1850,14 @@ static int __f2fs_issue_discard_zone(struct f2fs_sb_info *sbi,
 static int __issue_discard_async(struct f2fs_sb_info *sbi,
 		struct block_device *bdev, block_t blkstart, block_t blklen)
 {
+	static uint discard_cnt = 0;
 #ifdef CONFIG_BLK_DEV_ZONED
 	if (f2fs_sb_has_blkzoned(sbi) && bdev_is_zoned(bdev))
 		return __f2fs_issue_discard_zone(sbi, bdev, blkstart, blklen);
 #endif
+	if (discard_cnt%1000==0)
+		printk("[JW DBG] %s: start\n", __func__);
+	discard_cnt += 1;
 	return __queue_discard_cmd(sbi, bdev, blkstart, blklen);
 }
 
@@ -1855,6 +1870,7 @@ static int f2fs_issue_discard(struct f2fs_sb_info *sbi,
 	unsigned int offset;
 	block_t i;
 	int err = 0;
+	//printk("[JW DBG] %s: start\n", __func__);
 
 	bdev = f2fs_target_device(sbi, blkstart, NULL);
 
@@ -1991,6 +2007,7 @@ void f2fs_clear_prefree_segments(struct f2fs_sb_info *sbi,
 
 	mutex_lock(&dirty_i->seglist_lock);
 
+	printk("[JW DBG] %s: start\n", __func__);
 	while (1) {
 		int i;
 
@@ -2072,6 +2089,7 @@ skip:
 		release_discard_addr(entry);
 		dcc->nr_discards -= total_len;
 	}
+	printk("[JW DBG] %s: end, wake up thread!\n", __func__);
 
 	wake_up_discard_thread(sbi, false);
 }

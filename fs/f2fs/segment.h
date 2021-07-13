@@ -895,9 +895,12 @@ static inline void wake_up_discard_thread(struct f2fs_sb_info *sbi, bool force)
 		}
 	}
 	mutex_unlock(&dcc->cmd_lock);
-	if (!wakeup || !is_idle(sbi, DISCARD_TIME))
+	if (!wakeup || !is_idle(sbi, DISCARD_TIME)){
+		printk("[JW DBG] %s: waking up thread failed!!, wakeup false :%d, not_idle:%d \n", __func__, !wakeup, !is_idle(sbi, DISCARD_TIME));
 		return;
+	}
 wake_up:
 	dcc->discard_wake = 1;
+	printk("[JW DBG] %s: wake up thread successfully!!, wakeup false :%d, not_idle:%d \n", __func__, !wakeup, !is_idle(sbi, DISCARD_TIME));
 	wake_up_interruptible_all(&dcc->discard_wait_queue);
 }
